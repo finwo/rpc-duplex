@@ -2,7 +2,7 @@
   "name": "rpc-duplex",
   "version": "0.0.1",
   "description": "",
-  "main": "index.js",
+  "main": "src/rpc.js",
   "scripts": {
     "test": "NODE_ENV=babel jest --detectOpenHandles"
   },
