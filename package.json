@@ -1,0 +1,28 @@
+{
+  "name": "rpc-duplex",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "NODE_ENV=babel jest --detectOpenHandles"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@gitlab.com/finwo/rpc-duplex.git"
+  },
+  "author": "Robin Bron <robin@finwo.nl>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://gitlab.com/finwo/rpc-duplex/issues"
+  },
+  "homepage": "https://gitlab.com/finwo/rpc-duplex#readme",
+  "devDependencies": {
+    "jest": "^23.6.0",
+    "babel-jest": "^23.6.0",
+    "babel-plugin-add-module-exports": "^1.0.0",
+    "babel-plugin-transform-class-properties": "^6.24.1",
+    "babel-preset-env": "^1.7.0",
+    "expect": "^23.6.0",
+    "jest-isa": "^0.0.4"
+  }
+}
