@@ -61,7 +61,10 @@ const remote = rpc.from(consumer);
 
 ### Browser
 
-This package makes use of ES6 features. If you want to use this module in older browsers you'll need to use packages
+Browser usage is possible through the use of [browserify][browserify].
+
+This package makes use of ES6 features. If you want to use this module in older browsers you'll need to use a plugin
 like [esmify][esmify] to ensure it works.
 
+[browserify]: https://npmjs.com/package/browserify
 [esmify]: https://npmjs.com/package/esmify
