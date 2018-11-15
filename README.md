@@ -1,5 +1,7 @@
 # rpc-duplex
 
+[![NPM](https://nodei.co/npm/rpc-duplex.png)](https://nodei.co/npm/rpc-duplex/)
+
 > Streamed RPC library for both Node.JS and the browser
 
 ## Install
