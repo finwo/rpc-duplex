@@ -80,6 +80,7 @@ like [esmify][esmify] to ensure it works.
 
 - version the protocol
 - document the resulting protocol (like a spec)
+- automatic reconnect?
 
 [browserify]: https://npmjs.com/package/browserify
 [esmify]: https://npmjs.com/package/esmify
