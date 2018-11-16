@@ -241,6 +241,12 @@ let rpc = module.exports = function (obj) {
     get         : () => s,
     set         : () => {},
   });
+  Object.defineProperty(s.remote, stream, {
+    enumerable  : false,
+    configurable: true,
+    get         : () => s,
+    set         : () => {},
+  });
 
   return s;
 };
