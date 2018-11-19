@@ -178,7 +178,7 @@ let rpc = module.exports = function (local, remote) {
           case 'function':
             if ('function' !== typeof ref[lastKey]) {
               let fullPath = path.concat([lastKey]);
-              ref[lastKey] = function (...args) {
+              ref[lastKey] = async function (...args) {
                 return new Promise((resolve, reject) => {
                   let resolveId      = genId(),
                       rejectId       = genId();
