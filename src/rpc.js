@@ -128,7 +128,7 @@ function deserializeArgs(local, data) {
 }
 
 // Turn object into stream
-let rpc = module.exports = function (obj) {
+let rpc = module.exports = function (obj, virtual) {
   let s = through(async function incoming(data) {
     if (!data) return;
     data = mpack.decode(data);
@@ -244,7 +244,7 @@ let rpc = module.exports = function (obj) {
 
   // Keep track of structure
   s.local  = obj || {};
-  s.remote = {};
+  s.remote = virtual ? Object.create(virtual) : {};
 
   // Allow the update the fetch the stream
   Object.defineProperty(s.local, stream, {
