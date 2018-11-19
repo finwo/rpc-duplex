@@ -127,6 +127,35 @@ function deserializeArgs(local, data) {
   return out;
 }
 
+function injectStream( obj, s ) {
+  if (!obj) return;
+  if (!s) return;
+  if ('object' === typeof obj) {
+    Object.defineProperty(obj, stream, {
+      enumerable  : false,
+      configurable: true,
+      get         : () => s,
+      set         : () => {},
+    });
+  }
+  for (let prop in obj) {
+    if (!obj.hasOwnProperty(prop)) continue;
+    if (prop === stream) continue;
+    switch (typeof obj[prop]) {
+      case 'object':
+      case 'function':
+        if (!obj[prop]) continue;
+        Object.defineProperty(obj[prop], stream, {
+          enumerable  : false,
+          configurable: true,
+          get         : () => s,
+          set         : () => {},
+        });
+        break;
+    }
+  }
+}
+
 // Turn object into stream
 let rpc = module.exports = function (local, remote) {
   let s = through(async function incoming(data) {
@@ -247,18 +276,8 @@ let rpc = module.exports = function (local, remote) {
   s.remote = remote || {};
 
   // Allow the update the fetch the stream
-  Object.defineProperty(s.local, stream, {
-    enumerable  : false,
-    configurable: true,
-    get         : () => s,
-    set         : () => {},
-  });
-  Object.defineProperty(s.remote, stream, {
-    enumerable  : false,
-    configurable: true,
-    get         : () => s,
-    set         : () => {},
-  });
+  injectStream(s.local,s);
+  injectStream(s.remote,s);
 
   return s;
 };
@@ -272,11 +291,13 @@ rpc.from = function (s) {
 
 // Requests a state update
 rpc.update = function (local) {
+  if(!local[stream]) return;
   local[stream].emit('data', mpack.encode({fn: 'state'}));
 };
 
 // Send a state update
 rpc.updateRemote = function (local) {
+  if(!local[stream]) return;
   local[stream].emit('data', mpack.encode({
     fn : 'update',
     arg: serializeArgs(local[stream].local, [
