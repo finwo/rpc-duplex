@@ -80,6 +80,9 @@ function deserializeArgs(local, data) {
       ref = ref[key] = ref[key] || {};
     }
     switch(type) {
+      case 'null':
+        ref[lastKey] = null;
+        break;
       case 'object':
         if ('object' !== typeof ref[lastKey]) {
           ref[lastKey] = {};
@@ -130,7 +133,7 @@ let rpc = module.exports = function (obj) {
     if (!data) return;
     data = mpack.decode(data);
 
-    // State request
+    // Respond to state request
     if ('state' === data.fn) {
       s.emit('data', mpack.encode({
         fn : 'update',
@@ -153,9 +156,18 @@ let rpc = module.exports = function (obj) {
           ref = ref[key] = ref[key] || {};
         }
         switch (type) {
+          case 'null':
+            ref[lastKey] = null;
+            break;
           case 'object':
             if ('object' !== typeof ref[lastKey]) {
               ref[lastKey] = {};
+              Object.defineProperty(ref[lastKey], stream, {
+                enumerable  : false,
+                configurable: true,
+                get         : () => s,
+                set         : () => {},
+              });
             }
             continue;
           case 'array':
@@ -267,8 +279,8 @@ rpc.update = function (local) {
 rpc.updateRemote = function (local) {
   local[stream].emit('data', mpack.encode({
     fn : 'update',
-    arg: serializeArgs(local, [
-      encodeState(local)
+    arg: serializeArgs(local[stream].local, [
+      encodeState(local[stream].local)
     ])
   }));
 };
