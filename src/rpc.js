@@ -238,6 +238,7 @@ let rpc = module.exports = function (local, remote) {
             continue;
         }
       }
+      injectStream(remote,s);
       return;
     }
 
@@ -298,6 +299,7 @@ rpc.update = function (local) {
 // Send a state update
 rpc.updateRemote = function (local) {
   if(!local[stream]) return;
+  injectStream(local,local[stream]);
   local[stream].emit('data', mpack.encode({
     fn : 'update',
     arg: serializeArgs(local[stream].local, [
