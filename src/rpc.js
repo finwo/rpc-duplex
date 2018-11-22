@@ -29,7 +29,7 @@ function send(stream, data, nack) {
   // nacks are raw, don't prepend
   if (!(txid    in stream)) stream[txid]    = 0;
   if (!(history in stream)) stream[history] = [];
-  stream[history][stream[txid]] = data.slice()
+  stream[history][stream[txid]] = data.slice();
   data = Buffer.concat([Buffer.from([stream[txid]]),data]);
   stream[txid] = (stream[txid]+1) % 128;
 
@@ -53,7 +53,8 @@ async function acknack(stream, data) {
 
   // Ask retransmission if unexpected txid
   while (stream[rxid] !== rid) {
-    send(stream,Buffer.from([stream[rxid]++]),true);
+    send(stream,Buffer.from([stream[rxid]]),true);
+    stream[rxid] = (stream[rxid]+1) % 128;
   }
 
   // If NACK, retransmit if available
