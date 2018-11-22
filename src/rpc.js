@@ -1,7 +1,10 @@
 const mpack          = require('what-the-pack'),
       serializeError = require('serialize-error'),
       through        = require('through'),
-      stream         = Symbol();
+      stream         = Symbol(),
+      history        = Symbol(),
+      txid           = Symbol(),
+      rxid           = Symbol();
 
 // Remotely-thrown errors will be of this class
 class RemoteError extends Error {
@@ -20,12 +23,63 @@ function genId() {
   return out;
 }
 
-function send(stream, data) {
+function send(stream, data, nack) {
+
+  // Prepend txid & save for retransmission
+  // nacks are raw, don't prepend
+  if (!(txid    in stream)) stream[txid]    = 0;
+  if (!(history in stream)) stream[history] = [];
+  stream[history][stream[txid]] = data.slice()
+  data = Buffer.concat([Buffer.from([stream[txid]]),data]);
+  stream[txid] = (stream[txid]+1) % 128;
+
+  // Nack = flagged
+  if(nack) {
+    data[0] |= 128;
+  }
+
+  // Send the data
   if (stream.queue) {
     stream.queue(data);
   } else {
     stream.emit('data', data);
   }
+}
+
+async function acknack(stream, data) {
+  if (!(rxid    in stream)) stream[rxid]    = 0;
+  let rid = data[0] % 128,
+      ret = data.slice(1);
+
+  // Ask retransmission if unexpected txid
+  while (stream[rxid] !== rid) {
+    send(stream,Buffer.from([stream[rxid]++]),true);
+  }
+
+  // If NACK, retransmit if available
+  if (data[0]&128) {
+
+    // Retransmit
+    let rtid = data[1] % 128;
+    if (rtid in stream[history]) {
+      send(stream,stream[history][rtid]);
+    }
+
+    // Delete old history
+    let cid = rtid-1;
+    while(cid in stream[history]) {
+      delete stream[history][cid];
+      cid--;
+      if(cid<0) cid += 128
+    }
+
+    // Update expected id
+    stream[rxid] = (rid+1) % 128;
+    return false;
+  }
+
+  stream[rxid] = (rid+1) % 128;
+  return ret;
 }
 
 // Serializes an object into something safe
@@ -167,6 +221,8 @@ function injectStream( obj, s ) {
 // Turn object into stream
 let rpc = module.exports = function (local, remote) {
   let s = through(async function incoming(data) {
+    if (!data) return;
+    data = await acknack(s,data);
     if (!data) return;
     data = mpack.decode(data);
 
