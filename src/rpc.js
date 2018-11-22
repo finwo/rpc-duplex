@@ -20,6 +20,14 @@ function genId() {
   return out;
 }
 
+function send(stream, data) {
+  if (stream.queue) {
+    stream.queue(data);
+  } else {
+    stream.emit('data', data);
+  }
+}
+
 // Serializes an object into something safe
 function encodeState(state, out, path, includeFn) {
   path = path || [];
@@ -108,7 +116,7 @@ function deserializeArgs(local, data) {
               delete local[rejectId];
               reject(new RemoteError(data));
             };
-            local[stream].emit('data', mpack.encode({
+            send(local[stream], mpack.encode({
               fn : [value],
               arg: serializeArgs(local, args),
               ret: [resolveId],
@@ -164,7 +172,7 @@ let rpc = module.exports = function (local, remote) {
 
     // Respond to state request
     if ('state' === data.fn) {
-      s.emit('data', mpack.encode({
+      send(s, mpack.encode({
         fn : 'update',
         arg: serializeArgs(s.local, [
           encodeState(s.local)
@@ -221,7 +229,7 @@ let rpc = module.exports = function (local, remote) {
                     delete s.local[rejectId];
                     reject(new RemoteError(data));
                   };
-                  s.emit('data', mpack.encode({
+                  send(s, mpack.encode({
                     fn : fullPath,
                     arg: serializeArgs(s.local, args),
                     ret: [resolveId],
@@ -252,14 +260,14 @@ let rpc = module.exports = function (local, remote) {
         try {
           let result = await target(...deserializeArgs(s.local, data.arg));
           if (data.ret) {
-            s.emit('data', mpack.encode({
+            send(s, mpack.encode({
               fn : data.ret,
               arg: serializeArgs(s.local, [result])
             }));
           }
         } catch (e) {
           if (data.err) {
-            s.emit('data', mpack.encode({
+            send(s, mpack.encode({
               fn : data.err,
               arg: serializeArgs(s.local, [serializeError(e)])
             }));
@@ -286,21 +294,21 @@ let rpc = module.exports = function (local, remote) {
 // Turn stream into object
 rpc.from = function (s) {
   // Signal we want the state
-  s.emit('data', mpack.encode({fn: 'state'}));
+  send(s, mpack.encode({fn: 'state'}));
   return s.remote;
 };
 
 // Requests a state update
 rpc.update = function (local) {
   if(!local[stream]) return;
-  local[stream].emit('data', mpack.encode({fn: 'state'}));
+  send(local[stream], mpack.encode({fn: 'state'}));
 };
 
 // Send a state update
 rpc.updateRemote = function (local) {
   if(!local[stream]) return;
   injectStream(local,local[stream]);
-  local[stream].emit('data', mpack.encode({
+  send(local[stream], mpack.encode({
     fn : 'update',
     arg: serializeArgs(local[stream].local, [
       encodeState(local[stream].local)
