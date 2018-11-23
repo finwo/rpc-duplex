@@ -24,6 +24,8 @@ function genId() {
 }
 
 function send(stream, data, nack) {
+  if (!stream) return;
+  if (!data) return;
 
   // Prepend txid & save for retransmission
   // nacks are raw, don't prepend
@@ -51,34 +53,35 @@ async function acknack(stream, data) {
   let rid = data[0] % 128,
       ret = data.slice(1);
 
-  // Ask retransmission if unexpected txid
-  while (stream[rxid] !== rid) {
-    send(stream,Buffer.from([stream[rxid]]),true);
-    stream[rxid] = (stream[rxid]+1) % 128;
+  // Ask retransmission(s) if unexpected txid
+  // sends [expected,actual]
+  if (stream[rxid] !== rid) {
+    send(stream,Buffer.from([stream[rxid],rid]),true);
   }
 
-  // If NACK, retransmit if available
+  // If NACK, retransmit
   if (data[0]&128) {
 
-    // Retransmit
+    // Retransmit from expected to actual-1
     let rtid = data[1] % 128;
-    if (rtid in stream[history]) {
+    while(rtid !== (data[2]%128) ) {
       send(stream,stream[history][rtid]);
+      // Delete old history
+      let cid = rtid-1;
+      while(cid in stream[history]) {
+        delete stream[history][cid];
+        cid--;
+        if(cid<0) cid += 128
+      }
+      rtid = (rtid+1) % 128;
     }
 
-    // Delete old history
-    let cid = rtid-1;
-    while(cid in stream[history]) {
-      delete stream[history][cid];
-      cid--;
-      if(cid<0) cid += 128
-    }
-
-    // Update expected id
-    stream[rxid] = (rid+1) % 128;
-    return false;
+    // Return piggybacking data
+    ret = data.slice(3);
+    if (!ret.length) ret = false;
   }
 
+  // Update expected id
   stream[rxid] = (rid+1) % 128;
   return ret;
 }
