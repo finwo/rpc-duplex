@@ -23,6 +23,7 @@ function genId() {
   return out;
 }
 
+// TODO: move acknack into separate module
 function send(stream, data, nack) {
   if (!stream) return;
   if (!data) return;
