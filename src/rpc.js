@@ -116,7 +116,10 @@ function deserialize( ref, data, obj ) {
         }
         return;
       case 'array':
-        break;
+        if (!Array.isArray(ref[lastKey])) {
+          ref[lastKey] = [];
+        }
+        return;
       case 'function':
         if (!value) value = path.concat([lastKey]);
         if (!Array.isArray(value)) value = [value];
