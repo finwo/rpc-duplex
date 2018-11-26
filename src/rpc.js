@@ -139,7 +139,7 @@ function deserialize( ref, data, obj ) {
             };
             s.output.write(mpack.encode({
               fn : value,
-              arg: serializeArgs(ref, args),
+              arg: serializeArgs(s, args),
               ret: [resolveId],
               err: [rejectId]
             }));
@@ -182,7 +182,7 @@ const rpc = module.exports = function (options, local, remote) {
     base64    : false,
     burst     : true,
     mtu       : 2048,
-    wait      :  200,
+    wait      :   10,
   }, options || {});
 
   // Ensure local & remote objects
@@ -255,13 +255,13 @@ const rpc = module.exports = function (options, local, remote) {
   });
 
   // Attach references
-  io[stream]     = io;
-  local[stream]  = io;
-  remote[stream] = io;
-  io.local       = local;
-  io.remote      = remote;
-  io.output      = output;
-  io.input       = input;
+  io.local   = local;
+  io.remote  = remote;
+  io.output  = output;
+  io.input   = input;
+  io[stream] = io;
+  attachStream(io.remote,io);
+  attachStream(io.local ,io);
 
   // Return the duplex
   return io;
