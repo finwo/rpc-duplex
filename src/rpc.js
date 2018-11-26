@@ -1,10 +1,17 @@
-const mpack          = require('what-the-pack'),
+const through   = require('through'),
+      packetize = require('stream-packetize'),
       serializeError = require('serialize-error'),
-      through        = require('through'),
-      stream         = Symbol(),
-      history        = Symbol(),
-      txid           = Symbol(),
-      rxid           = Symbol();
+      nagle     = require('stream-nagle'),
+      mpack     = require('what-the-pack'),
+      stream    = Symbol();
+
+// Generate a safe ID to use
+function genId() {
+  let out = '';
+  while (out.length < 48)
+    out += (Math.random() * 36 * 36).toString(36).substr(0, 2);
+  return out;
+}
 
 // Remotely-thrown errors will be of this class
 class RemoteError extends Error {
@@ -14,105 +21,38 @@ class RemoteError extends Error {
   }
 }
 
-// Generate a safe ID to use
-function genId() {
-  let out = '';
-  while (out.length < 48) {
-    out += (Math.random() * 36 * 36).toString(36).substr(0, 2);
-  }
-  return out;
-}
-
-// TODO: move acknack into separate module
-function send(stream, data, nack) {
-  if (!stream) return;
-  if (!data) return;
-
-  // Prepend txid & save for retransmission
-  // nacks are raw, don't prepend
-  if (!(txid    in stream)) stream[txid]    = 0;
-  if (!(history in stream)) stream[history] = [];
-  stream[history][stream[txid]] = data.slice();
-  data = Buffer.concat([Buffer.from([stream[txid]]),data]);
-  stream[txid] = (stream[txid]+1) % 128;
-
-  // Nack = flagged
-  if(nack) {
-    data[0] |= 128;
-  }
-
-  // Send the data
-  if (stream.queue) {
-    stream.queue(data);
-  } else {
-    stream.emit('data', data);
-  }
-}
-
-async function acknack(stream, data) {
-  if (!(rxid    in stream)) stream[rxid]    = 0;
-  let rid = data[0] % 128,
-      ret = data.slice(1);
-
-  // Ask retransmission(s) if unexpected txid
-  // sends [expected,actual]
-  if (stream[rxid] !== rid) {
-    send(stream,Buffer.from([stream[rxid],rid]),true);
-  }
-
-  // If NACK, retransmit
-  if (data[0]&128) {
-
-    // Retransmit from expected to actual-1
-    let rtid = data[1] % 128;
-    while(rtid !== (data[2]%128) ) {
-      send(stream,stream[history][rtid]);
-      // Delete old history
-      let cid = rtid-1;
-      while(cid in stream[history]) {
-        delete stream[history][cid];
-        cid--;
-        if(cid<0) cid += 128
-      }
-      rtid = (rtid+1) % 128;
-    }
-
-    // Return piggybacking data
-    ret = data.slice(3);
-    if (!ret.length) ret = false;
-  }
-
-  // Update expected id
-  stream[rxid] = (rid+1) % 128;
-  return ret;
-}
-
-// Serializes an object into something safe
-function encodeState(state, out, path, includeFn) {
-  path = path || [];
-  out  = out || [];
-  Object.keys(state).forEach(function(key) {
-    let current = [path.concat([key]), typeof state[key]];
-    switch (current[1]) {
+function serialize( data, out, path, includeFn ) {
+  out      = out  || [];
+  path     = path || [];
+  let type = 1;
+  Object.keys(data).forEach(function(key) {
+    let current = [path.concat([key]), typeof data[key]];
+    switch(current[type]) {
       case 'function':
-        if (includeFn) current.push(state[key]);
+        if (includeFn) current.push(data[key]);
         out.push(current);
-        encodeState(state[key], out, path.concat([key]));
+        serialize(data[key], out, path.concat([key]), includeFn);
         break;
       case 'object':
-        if (null === state[key]) {
-          current[1] = 'null';
+
+        // null = object
+        if (null === data[key]) {
+          current[type] = 'null';
           out.push(current);
           break;
         }
-        if (Array.isArray(state[key])) {
-          current[1] = 'array';
+
+        // Identify arrays
+        if (Array.isArray(data[key])) {
+          current[type] = 'array';
         }
+
+        // Iterate down
         out.push(current);
-        encodeState(state[key], out, path.concat([key]));
+        serialize(data[key], out, path.concat([key]), includeFn);
         break;
       default:
-        current.push(state[key]);
+        current.push(data[key]);
         out.push(current);
         break;
     }
@@ -120,32 +60,22 @@ function encodeState(state, out, path, includeFn) {
   return out;
 }
 
-// Make the args safe
-function serializeArgs(local, data) {
-  let serialized = encodeState(data, [], [], true);
-  serialized.forEach(function(token) {
-    switch(token[1]) {
-      case 'function':
-        let id = genId();
-        local[id] = token[2];
-        token[2]  = id;
-        break;
-    }
-  });
-  return serialized;
-}
-
-// Decode the safe args
-// TODO: create decodeState function
-function deserializeArgs(local, data) {
-  let out = [];
+function deserialize( ref, data, obj ) {
+  obj   = obj || {};
+  let s = ref[stream];
   data.forEach(function(token) {
+
+    // Destructure the token
     let [path, type, value] = token;
-    let ref                 = out;
+    let ref                 = obj;
     let lastKey             = path.pop();
+
+    // Get the proper reference
     for (const key of path) {
       ref = ref[key] = ref[key] || {};
     }
+
+    // Fetch what to do
     switch(type) {
       case 'null':
         ref[lastKey] = null;
@@ -156,34 +86,33 @@ function deserializeArgs(local, data) {
         }
         return;
       case 'array':
-        if (!Array.isArray(ref[lastKey])) {
-          ref[lastKey] = [];
-        }
-        return;
+        break;
       case 'function':
+        if (!value) value = path.concat([lastKey]);
+        if (!Array.isArray(value)) value = [value];
         ref[lastKey] = function (...args) {
           return new Promise((resolve, reject) => {
             let resolveId      = genId(),
                 rejectId       = genId();
-            local[resolveId] = function (data) {
-              delete local[resolveId];
-              delete local[rejectId];
+            s.local[resolveId] = function (data) {
+              delete s.local[resolveId];
+              delete s.local[rejectId];
               resolve(data);
             };
-            local[rejectId]  = function (data) {
-              delete local[resolveId];
-              delete local[rejectId];
+            s.local[rejectId]  = function (data) {
+              delete s.local[resolveId];
+              delete s.local[rejectId];
               reject(new RemoteError(data));
             };
-            send(local[stream], mpack.encode({
-              fn : [value],
-              arg: serializeArgs(local, args),
+            s.output.write(mpack.encode({
+              fn : value,
+              arg: serializeArgs(ref, args),
               ret: [resolveId],
               err: [rejectId]
             }));
           });
         };
-        return;
+        break;
       default:
         if (value !== ref[lastKey]) {
           ref[lastKey] = value;
@@ -191,188 +120,124 @@ function deserializeArgs(local, data) {
         return;
     }
   });
-  return out;
+  return obj;
 }
 
-function injectStream( obj, s ) {
-  if (!obj) return;
-  if (!s) return;
-  if ('object' === typeof obj) {
-    Object.defineProperty(obj, stream, {
-      enumerable  : false,
-      configurable: true,
-      get         : () => s,
-      set         : () => {},
-    });
-  }
-  for (let prop in obj) {
-    if (!obj.hasOwnProperty(prop)) continue;
-    if (prop === stream) continue;
-    switch (typeof obj[prop]) {
-      case 'object':
+function serializeArgs(ref, data) {
+  let s = ref[stream];
+  let serialized = serialize(data, [], [], true);
+  serialized.forEach(function(token) {
+    switch(token[1]) {
       case 'function':
-        if (!obj[prop]) continue;
-        Object.defineProperty(obj[prop], stream, {
-          enumerable  : false,
-          configurable: true,
-          get         : () => s,
-          set         : () => {},
-        });
+        let id = genId();
+        s.local[id] = token[2];
+        token[2]    = id;
         break;
     }
-  }
+  });
+  return serialized;
 }
 
-// Turn object into stream
-let rpc = module.exports = function (local, remote) {
-  let s = through(async function incoming(data) {
-    if (!data) return;
-    data = await acknack(s,data);
+function deserializeArgs(ref, data) {
+  let deserialized = deserialize(ref, data);
+  return Object.keys(deserialized).map( key => deserialized[key] );
+}
+
+const rpc = module.exports = function (options, local, remote) {
+  let opts = Object.assign({
+    aggressive: true,
+    base64    : false,
+    burst     : true,
+    mtu       : 2048,
+    wait      :  200,
+  }, options || {});
+
+  // Ensure local & remote objects
+  local  = local  || {};
+  remote = remote || {};
+
+  // Create the loop
+  let input  = packetize.decode(opts);
+  let output = packetize.encode(opts);
+  let io = through(function (data) {
+    input.write(data);
+  }, function() {
+    input.write(null);
+  });
+  output.pipe(nagle(opts))
+    .on('data', function(chunk) {
+      io.queue(chunk);
+    })
+    .on('end', function() {
+      io.queue(null);
+    });
+
+  // Handle incoming data
+  input.on('data', async function(data) {
     if (!data) return;
     data = mpack.decode(data);
 
     // Respond to state request
     if ('state' === data.fn) {
-      send(s, mpack.encode({
+      io.output.write(mpack.encode({
         fn : 'update',
-        arg: serializeArgs(s.local, [
-          encodeState(s.local)
-        ])
+        arg: serialize(io.local)
       }));
       return;
     }
 
-    // State update
-    // TODO: create decodeState function
+    // Handle incoming update
     if ('update' === data.fn) {
-      let [remoteState] = deserializeArgs(s.local, data.arg);
-      for (let remoteProp of remoteState) {
-        let ref                   = s.remote;
-        const [path, type, value] = remoteProp;
-        const lastKey             = path.pop();
-        for (let key of path) {
-          ref = ref[key] = ref[key] || {};
-        }
-        switch (type) {
-          case 'null':
-            ref[lastKey] = null;
-            break;
-          case 'object':
-            if ('object' !== typeof ref[lastKey]) {
-              ref[lastKey] = {};
-              Object.defineProperty(ref[lastKey], stream, {
-                enumerable  : false,
-                configurable: true,
-                get         : () => s,
-                set         : () => {},
-              });
-            }
-            continue;
-          case 'array':
-            if (!Array.isArray(ref[lastKey])) {
-              ref[lastKey] = [];
-            }
-            continue;
-          case 'function':
-            if ('function' !== typeof ref[lastKey]) {
-              let fullPath = path.concat([lastKey]);
-              ref[lastKey] = async function (...args) {
-                return new Promise((resolve, reject) => {
-                  let resolveId      = genId(),
-                      rejectId       = genId();
-                  s.local[resolveId] = function (data) {
-                    delete s.local[resolveId];
-                    delete s.local[rejectId];
-                    resolve(data);
-                  };
-                  s.local[rejectId]  = function (data) {
-                    delete s.local[resolveId];
-                    delete s.local[rejectId];
-                    reject(new RemoteError(data));
-                  };
-                  send(s, mpack.encode({
-                    fn : fullPath,
-                    arg: serializeArgs(s.local, args),
-                    ret: [resolveId],
-                    err: [rejectId]
-                  }));
-                });
-              };
-            }
-            continue;
-          default:
-            if (value !== ref[lastKey]) {
-              ref[lastKey] = value;
-            }
-            continue;
-        }
-      }
-      injectStream(remote,s);
+      deserialize(io, data.arg, io.remote);
       return;
     }
 
-    // Actual function call
+    // Handle a function call
     if (Array.isArray(data.fn)) {
-      let target = s.local;
-      for (let key of data.fn) {
+      let target = io.local;
+      for ( let key of data.fn ) {
         target = target[key] || {};
       }
-      if ('function' === typeof target) {
-        try {
-          let result = await target(...deserializeArgs(s.local, data.arg));
-          if (data.ret) {
-            send(s, mpack.encode({
-              fn : data.ret,
-              arg: serializeArgs(s.local, [result])
-            }));
-          }
-        } catch (e) {
-          if (data.err) {
-            send(s, mpack.encode({
-              fn : data.err,
-              arg: serializeArgs(s.local, [serializeError(e)])
-            }));
-          }
-        }
+      if ('function' !== typeof target) {
         return;
       }
+      try {
+        let result = await target(...deserializeArgs(io, data.arg));
+        if (data.ret) {
+          io.output.write(mpack.encode({
+            fn : data.ret,
+            arg: serializeArgs(io, [result]),
+          }));
+        }
+      } catch(e) {
+        if (data.err) {
+          io.output.write(mpack.encode({
+            fn : data.err,
+            arg: serializeArgs(io, [serializeError(e)])
+          }));
+        }
+      }
+      return;
     }
-
-    // Maybe extend here
   });
 
-  // Keep track of structure
-  s.local  = local  || {};
-  s.remote = remote || {};
+  // Attach references
+  io[stream]     = io;
+  local[stream]  = io;
+  remote[stream] = io;
+  io.local       = local;
+  io.remote      = remote;
+  io.output      = output;
 
-  // Allow the update the fetch the stream
-  injectStream(s.local,s);
-  injectStream(s.remote,s);
-
-  return s;
+  // Return the duplex
+  return io;
 };
 
-// Turn stream into object
-rpc.from = function (s) {
-  // Signal we want the state
-  send(s, mpack.encode({fn: 'state'}));
-  return s.remote;
+rpc.remote = function (ref) {
+  ref[stream].output.write(mpack.encode({fn: 'state'}));
+  return ref[stream].remote;
 };
 
-// Requests a state update
-rpc.update = function (local) {
-  if(!local[stream]) return;
-  send(local[stream], mpack.encode({fn: 'state'}));
-};
-
-// Send a state update
-rpc.updateRemote = function (local) {
-  if(!local[stream]) return;
-  injectStream(local,local[stream]);
-  send(local[stream], mpack.encode({
-    fn : 'update',
-    arg: serializeArgs(local[stream].local, [
-      encodeState(local[stream].local)
-    ])
-  }));
+rpc.local = function(ref) {
+  return ref[stream].local;
 };

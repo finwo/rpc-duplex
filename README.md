@@ -26,7 +26,7 @@ npm install --save rpc-duplex
 const rpc = require('rpc-duplex');
 
 // Creating a provider
-const provider = rpc({
+const provider = rpc({}, {
   capitalize( str ) {
     return str.toUpperCase();
   },
@@ -43,17 +43,13 @@ const consumer = rpc();
 provider.pipe(consumer).pipe(provider);
 
 // Use provided functions
-const remote = rpc.from(consumer);
+const remote = rpc.remote(consumer);
 
 // Go async so you can copy-paste this code
 (async () => {
   
-  // Over a network, wait for the functions to appear
-  while(!remote.capitalize) {
-    await new Promise(resolve => {
-      setTimeout(resolve,10);
-    });
-  }
+  // Wait for functions to appear
+  while(remote.capitalize) await new Promise(r=>setTimeout(r,100));
   
   // Call a remote function
   let result = await remote.capitalize('foobar');
