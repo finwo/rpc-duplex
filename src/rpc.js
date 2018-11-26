@@ -21,6 +21,36 @@ class RemoteError extends Error {
   }
 }
 
+// Attach the stream everywhere in the ref
+function attachStream( obj, s ) {
+  if (!obj) return;
+  if (!s) return;
+  if ('object' === typeof obj) {
+    Object.defineProperty(obj, stream, {
+      enumerable  : false,
+      configurable: true,
+      get         : () => s,
+      set         : () => {},
+    });
+  }
+  for (let prop in obj) {
+    if (!obj.hasOwnProperty(prop)) continue;
+    if (prop === stream) continue;
+    switch (typeof obj[prop]) {
+      case 'object':
+      case 'function':
+        if (!obj[prop]) continue;
+        Object.defineProperty(obj[prop], stream, {
+          enumerable  : false,
+          configurable: true,
+          get         : () => s,
+          set         : () => {},
+        });
+        break;
+    }
+  }
+}
+
 function serialize( data, out, path, includeFn ) {
   out      = out  || [];
   path     = path || [];
@@ -228,16 +258,28 @@ const rpc = module.exports = function (options, local, remote) {
   io.local       = local;
   io.remote      = remote;
   io.output      = output;
+  io.input       = input;
 
   // Return the duplex
   return io;
 };
 
 rpc.remote = function (ref) {
-  ref[stream].output.write(mpack.encode({fn: 'state'}));
+  rpc.update(ref);
   return ref[stream].remote;
 };
 
 rpc.local = function(ref) {
   return ref[stream].local;
+};
+
+rpc.update = function(ref) {
+  if (!ref[stream]) return;
+  ref[stream].output.write(mpack.encode({fn: 'state'}));
+};
+
+rpc.updateRemote = function(ref) {
+  if (!ref[stream]) return;
+  attachStream(ref,ref[stream]);
+  ref[stream].write(mpack.encode({fn: 'state'}));
 };
