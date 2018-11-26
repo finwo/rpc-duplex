@@ -281,5 +281,5 @@ rpc.update = function(ref) {
 rpc.updateRemote = function(ref) {
   if (!ref[stream]) return;
   attachStream(ref,ref[stream]);
-  ref[stream].write(mpack.encode({fn: 'state'}));
+  ref[stream].input.emit('data',mpack.encode({fn: 'state'}));
 };
