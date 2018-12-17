@@ -1,9 +1,9 @@
-const through   = require('through'),
-      packetize = require('stream-packetize'),
-      serializeError = require('serialize-error'),
-      nagle     = require('stream-nagle'),
-      mpack     = require('what-the-pack'),
-      stream    = Symbol();
+const through            = require('through'),
+      packetize          = require('stream-packetize'),
+      serializeError     = require('serialize-error'),
+      nagle              = require('stream-nagle'),
+      { encode, decode } = require('notepack.io'),
+      stream             = Symbol();
 
 // Generate a safe ID to use
 function genId() {
@@ -137,7 +137,7 @@ function deserialize( ref, data, obj ) {
               delete s.local[rejectId];
               reject(new RemoteError(data));
             };
-            s.output.write(mpack.encode({
+            s.output.write(encode({
               fn : value,
               arg: serializeArgs(s, args),
               ret: [resolveId],
@@ -208,11 +208,11 @@ const rpc = module.exports = function (options, local, remote) {
   // Handle incoming data
   input.on('data', async function(data) {
     if (!data) return;
-    data = mpack.decode(data);
+    data = decode(data);
 
     // Respond to state request
     if ('state' === data.fn) {
-      io.output.write(mpack.encode({
+      io.output.write(encode({
         fn : 'update',
         arg: serialize(io.local)
       }));
@@ -237,14 +237,14 @@ const rpc = module.exports = function (options, local, remote) {
       try {
         let result = await target(...deserializeArgs(io, data.arg));
         if (data.ret) {
-          io.output.write(mpack.encode({
+          io.output.write(encode({
             fn : data.ret,
             arg: serializeArgs(io, [result]),
           }));
         }
       } catch(e) {
         if (data.err) {
-          io.output.write(mpack.encode({
+          io.output.write(encode({
             fn : data.err,
             arg: serializeArgs(io, [serializeError(e)])
           }));
@@ -278,11 +278,11 @@ rpc.local = function(ref) {
 
 rpc.update = function(ref) {
   if (!ref[stream]) return;
-  ref[stream].output.write(mpack.encode({fn: 'state'}));
+  ref[stream].output.write(encode({fn: 'state'}));
 };
 
 rpc.updateRemote = function(ref) {
   if (!ref[stream]) return;
   attachStream(ref,ref[stream]);
-  ref[stream].input.emit('data',mpack.encode({fn: 'state'}));
+  ref[stream].input.emit('data',encode({fn: 'state'}));
 };

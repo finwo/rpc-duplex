@@ -26,11 +26,11 @@
     "jest-isa": "^0.0.4"
   },
   "dependencies": {
+    "notepack.io": "^2.1.3",
     "serialize-error": "^3.0.0",
     "stream-nagle": "^0.1.2",
     "stream-packetize": "^0.1.1",
-    "through": "^2.3.8",
-    "what-the-pack": "^1.1.3"
+    "through": "^2.3.8"
   },
   "keywords": [
     "rpc",
