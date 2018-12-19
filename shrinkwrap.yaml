@@ -1,8 +1,8 @@
 dependencies:
-  notepack.io: 2.1.3
+  notepack.io: 2.2.0
   serialize-error: 3.0.0
   stream-nagle: 0.1.2
-  stream-packetize: 0.1.1
+  stream-packetize: 0.1.2
   through: 2.3.8
 devDependencies:
   babel-jest: 23.6.0
@@ -2800,10 +2800,10 @@ packages:
       node: '>=0.10.0'
     resolution:
       integrity: sha1-GrKLVW4Zg2Oowab35vogE3/mrtk=
-  /notepack.io/2.1.3:
+  /notepack.io/2.2.0:
     dev: false
     resolution:
-      integrity: sha512-AgSt+cP5XMooho1Ppn8NB3FFaVWefV+qZoZncYTUSch2GAEwlYLcIIbT5YVkMlFeNHnfwOvc4HDlbvrB5BRxXA==
+      integrity: sha512-9b5w3t5VSH6ZPosoYnyDONnUTF8o0UkBw7JLA6eBlYJWyGT1Q3vQa8Hmuj1/X6RYvHjjygBDgw6fJhe0JEojfw==
   /npm-run-path/2.0.2:
     dependencies:
       path-key: 2.0.1
@@ -3631,12 +3631,12 @@ packages:
     dev: false
     resolution:
       integrity: sha512-YBo9NiINdy9x48r0fnapPmt4YfNxJiggOnnvE7VLb/hFEKsRPXqC+tY6gtyd0TCH85IqTYPinnNfc2NS4VjHug==
-  /stream-packetize/0.1.1:
+  /stream-packetize/0.1.2:
     dependencies:
       through: 2.3.8
     dev: false
     resolution:
-      integrity: sha512-xZce1+/93TYlzW9SqlMhQ57KVjafJD32NpuWpkIgpUIq/KFXJsTCWVIcTO8CYQRglR164aJ8krkNlha4LA+uZQ==
+      integrity: sha512-sc2jxVVbTJagsOqodtWzPzEY/Ii9uF5/LN3XJ/cNBwEqR2qn/A4YTfxbQ9dvxZr83T0tuEjiG/qUS9Iscv08ww==
   /string-length/2.0.0:
     dependencies:
       astral-regex: 1.0.0
@@ -4070,8 +4070,8 @@ specifiers:
   expect: ^23.6.0
   jest: ^23.6.0
   jest-isa: ^0.0.4
-  notepack.io: ^2.1.3
+  notepack.io: ^2.2.0
   serialize-error: ^3.0.0
   stream-nagle: ^0.1.2
-  stream-packetize: ^0.1.1
+  stream-packetize: ^0.1.2
   through: ^2.3.8
