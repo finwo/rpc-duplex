@@ -178,16 +178,18 @@ function deserializeArgs(ref, data) {
 
 const rpc = module.exports = function (options, local, remote) {
   let opts = Object.assign({
-    aggressive: true,
-    base64    : false,
-    burst     : true,
-    mtu       : 2048,
-    wait      :   10,
+    aggressive:  true,
+    base64    :  false,
+    burst     :  true,
+    mtu       :  2048,
+    wait      :    10,
+    keepalive : 10000,
   }, options || {});
 
   // Ensure local & remote objects
   local  = local  || {};
   remote = remote || {};
+  timer  = false;
 
   // Create the loop
   let input  = packetize.decode(opts);
@@ -210,12 +212,30 @@ const rpc = module.exports = function (options, local, remote) {
     if (!data) return;
     data = decode(data);
 
+    // Send ping after idle
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(function() {
+      timer = false;
+      io.output.write(encode({ fn: 'ping' }));
+    }, opts.keepalive);
+
     // Respond to state request
     if ('state' === data.fn) {
       io.output.write(encode({
         fn : 'update',
         arg: serialize(io.local)
       }));
+      return;
+    }
+
+    // Pong = fine
+    if ('pong' === data.fn) {
+      return;
+    }
+
+    // Reply to pings
+    if ('ping' === data.fn) {
+      io.output.write(encode({ fn: 'pong' }));
       return;
     }
 
