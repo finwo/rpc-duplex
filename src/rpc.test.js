@@ -22,6 +22,11 @@ let server = rpc({wait: 10}, {
 // Init client
 let client = rpc({wait: 10});
 
+// Register cleanup
+afterAll(function() {
+  rpc.stopKeepalive(client);
+});
+
 // Connect them (normally through net)
 server.pipe(client).pipe(server);
 

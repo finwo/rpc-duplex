@@ -213,11 +213,22 @@ const rpc = module.exports = function (options, local, remote) {
     data = decode(data);
 
     // Send ping after idle
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(function() {
+    // Stop the keepalive (temporary solution)
+    if ('stopKeepalive' === data.fn) {
+      if (!timer) return;
+      clearTimeout(timer);
       timer = false;
-      io.output.write(encode({ fn: 'ping' }));
-    }, opts.keepalive);
+      io.output.write(encode({ fn : 'stopKeepalive' }));
+      return;
+    }
+
+    if (timer) clearTimeout(timer);
+    if (opts.keepalive) {
+      timer = setTimeout(function() {
+        timer = false;
+        io.output.write(encode({ fn: 'ping' }));
+      }, opts.keepalive);
+    }
 
     // Respond to state request
     if ('state' === data.fn) {
@@ -305,4 +316,9 @@ rpc.updateRemote = function(ref) {
   if (!ref[stream]) return;
   attachStream(ref,ref[stream]);
   ref[stream].input.emit('data',encode({fn: 'state'}));
+};
+
+rpc.stopKeepalive = function(ref) {
+  if (!ref[stream]) return;
+  ref[stream].input.emit('data', encode({fn: 'stopKeepalive'}));
 };
