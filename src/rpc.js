@@ -187,9 +187,9 @@ const rpc = module.exports = function (options, local, remote) {
   }, options || {});
 
   // Ensure local & remote objects
-  local  = local  || {};
-  remote = remote || {};
-  timer  = false;
+  local      = local  || {};
+  remote     = remote || {};
+  let timer  = false;
 
   // Create the loop
   let input  = packetize.decode(opts);
