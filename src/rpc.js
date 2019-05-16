@@ -253,6 +253,7 @@ const rpc = module.exports = function (options, local, remote) {
     // Handle incoming update
     if ('update' === data.fn) {
       deserialize(io, data.arg, io.remote);
+      io.emit('update');
       return;
     }
 
