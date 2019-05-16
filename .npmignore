@@ -1,0 +1,9 @@
+/.idea/
+/node_modules/
+/coverage/
+/.gtm/
+/.editorconfig
+/.gitlab-ci.yml
+/shrinkwrap.yaml
+/scripts/
+/CODE_OF_CONDUCT.md
