@@ -24,5 +24,6 @@ publish to npmjs.com:
   only:
     - master
   script:
-    - echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+    - echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >  ~/.npmrc
+    - echo "unsafe-perm = true"                            >> ~/.npmrc
     - if [ $(npm view $(node -p "require('./package.json').name") version) != $(node -p "require('./package.json').version") ]; then npm publish ; fi
