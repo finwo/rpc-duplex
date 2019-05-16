@@ -4,7 +4,8 @@
   "description": "",
   "main": "src/rpc.js",
   "scripts": {
-    "test": "NODE_ENV=babel jest --detectOpenHandles"
+    "test": "NODE_ENV=babel jest --detectOpenHandles",
+    "postpublish": "sh scripts/postpublish.sh"
   },
   "repository": {
     "type": "git",
