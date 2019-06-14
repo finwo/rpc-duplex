@@ -1,8 +1,45 @@
-const packetize          = require('stream-packetize'),
-      serializeError     = require('serialize-error'),
-      nagle              = require('stream-nagle'),
+const serializeError     = require('serialize-error'),
       stream             = Symbol('stream'),
       EventEmitter       = require('simple-ee');
+
+function passthrough() {
+  return EventEmitter({
+    readable: true,
+    writable: true,
+    paused  : false,
+    write: function(chunk) {
+      this.emit('data',chunk);
+    },
+    end: function() {
+      this.emit('end');
+    },
+    pipe: function(dst) {
+      this.on('data',chunk => dst.write(chunk));
+      return dst;
+    }
+  });
+}
+
+function objectDecoder() {
+  let stack = [];
+  return EventEmitter({
+    readable: true,
+    writable: true,
+    paused  : false,
+    write: function(chunk) {
+      // TODO: manual JSON decode here
+    },
+    end: function() {
+      this.emit('end');
+    },
+    pipe: function(dst) {
+      this.on('data', function(obj) {
+        dst.write(JSON.stringify(obj));
+      });
+      return dst;
+    },
+  });
+}
 
 function encode( subject ) {
   return JSON.stringify(subject);
@@ -92,7 +129,7 @@ function serialize( data, out, path, includeFn ) {
           return out[0][key] = data[key];
 
         // Iterate down
-        out[0][key] = Object.assign({},data[key]);
+        out[0][key] = Object.assign(Array.isArray(data[key])?[]:{},data[key]);
         serialize(data[key], [out[0][key],out[1]], current, includeFn);
         return;
       default:
@@ -117,6 +154,7 @@ function deserialize( ref, data, obj ) {
           if (!src[key]) return dst[key] = src[key];
           dst[key] = dst[key] || (Array.isArray(src[key])?[]:{});
           merge(dst[key],src[key],current);
+          break;
         default:
           dst[key] = src[key];
           break;
@@ -180,8 +218,8 @@ const rpc = module.exports = function (options, local, remote) {
   remote     = remote || {};
 
   // Create IO loop
-  const input  = packetize.decode(opts);
-  const output = packetize.encode(opts);
+  const input  = objectDecoder();
+  const output = passthrough();
   const io     = EventEmitter({
     readable: true,
     writable: true,
@@ -200,7 +238,7 @@ const rpc = module.exports = function (options, local, remote) {
       return destination;
     },
   });
-  output.pipe(nagle(opts))
+  output
     .on('data', function(chunk) {
       io.emit('data',chunk);
     })
@@ -221,8 +259,11 @@ const rpc = module.exports = function (options, local, remote) {
 
   // Handle incoming data
   input.on('data', async function(data) {
+    console.log(data);
     if (!data) return;
     data = decode(data);
+
+    console.log('DEC RECV', JSON.stringify(data));
 
     // Handle internal functions
     if (('string' === typeof data.fn) && (data.fn in internal)) {
