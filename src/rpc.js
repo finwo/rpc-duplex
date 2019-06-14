@@ -82,7 +82,7 @@ function serialize( data, out, path, includeFn ) {
         let fn = [current];
         if (includeFn) fn.push(data[key]);
         out[1].push(fn);
-        out[0][key] = {};
+        out[0][key] = Object.assign({},data[key]);
         serialize(data[key], [out[0][key],out[1]], path.concat([key]), includeFn);
         break;
       case 'object':
@@ -92,7 +92,7 @@ function serialize( data, out, path, includeFn ) {
           return out[0][key] = data[key];
 
         // Iterate down
-        out[0][key] = data[key];
+        out[0][key] = Object.assign({},data[key]);
         serialize(data[key], [out[0][key],out[1]], current, includeFn);
         return;
       default:
@@ -100,6 +100,7 @@ function serialize( data, out, path, includeFn ) {
         break;
     }
   });
+
   return out;
 }
 
@@ -129,7 +130,7 @@ function deserialize( ref, data, obj ) {
       let value = path.slice();
       let ref   = dst;
       let last  = path.pop();
-      for(let token in path)
+      for(let token of path)
         ref = ref[token] = ref[token] || {};
       let org = ref[last];
       ref[last] = function(...args) {
