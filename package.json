@@ -24,7 +24,6 @@
     "jest-isa": "^0.0.4"
   },
   "dependencies": {
-    "notepack.io": "^2.2.0",
     "serialize-error": "^3.0.0",
     "stream-nagle": "^0.1.2",
     "stream-packetize": "^0.1.2",
