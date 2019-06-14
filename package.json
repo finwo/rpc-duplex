@@ -9,14 +9,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@gitlab.com/finwo/rpc-duplex.git"
+    "url": "git://git.finwo.net/rpc-duplex-js"
   },
   "author": "Robin Bron <robin@finwo.nl>",
   "license": "MIT",
-  "bugs": {
-    "url": "https://gitlab.com/finwo/rpc-duplex/issues"
-  },
-  "homepage": "https://gitlab.com/finwo/rpc-duplex#readme",
+  "homepage": "http://git.finwo.net/rpc-duplex-js",
   "devDependencies": {
     "esm": "^3.2.25",
     "expect": "^23.6.0",
