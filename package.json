@@ -4,7 +4,7 @@
   "description": "",
   "main": "src/rpc.js",
   "scripts": {
-    "test": "NODE_ENV=babel jest --detectOpenHandles",
+    "test": "jest --detectOpenHandles",
     "postpublish": "sh scripts/postpublish.sh"
   },
   "repository": {
@@ -18,12 +18,9 @@
   },
   "homepage": "https://gitlab.com/finwo/rpc-duplex#readme",
   "devDependencies": {
-    "jest": "^23.6.0",
-    "babel-jest": "^23.6.0",
-    "babel-plugin-add-module-exports": "^1.0.0",
-    "babel-plugin-transform-class-properties": "^6.24.1",
-    "babel-preset-env": "^1.7.0",
+    "esm": "^3.2.25",
     "expect": "^23.6.0",
+    "jest": "^23.6.0",
     "jest-isa": "^0.0.4"
   },
   "dependencies": {

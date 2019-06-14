@@ -1,57 +1,81 @@
-import expect from 'expect';
-import rpc    from './rpc';
+var esmRequire = require('esm')(module);
+var expect     = esmRequire('expect');
+var rpc        = esmRequire('./rpc');
 
-// Build server
-let server = rpc({wait: 10}, {
-  ready: true,
-  user: {
-    name: 'root',
-    pass: 'toor'
-  },
-  fnReturn: function(arg) {
-    return arg.toUpperCase();
-  },
-  fnCallback: function(arg, cb) {
-    cb(null,arg.toUpperCase());
-  },
-  fnThrow: function() {
-    throw new Error('foobar err');
-  },
+var serverSide;
+var clientSide;
+var client;
+
+beforeAll(async function() {
+
+  // Build server
+  serverSide = rpc({}, {
+    ready: true,
+    secret: null,
+    user: {
+      name: 'root',
+      pass: 'toor'
+    },
+    fnReturn: function(arg) {
+      return arg.toUpperCase();
+    },
+    fnCallback: function(arg, cb) {
+      cb(null,arg.toUpperCase());
+    },
+    fnThrow: function() {
+      throw new Error('foobar err');
+    },
+  });
+
+  // Init client connector
+  clientSide = rpc({});
+
+  // Connect them together (would normally go through net)
+  serverSide.pipe(clientSide).pipe(serverSide);
+
+  // Initialize the actual client
+  client = rpc.remote(clientSide);
 });
 
-// Init client
-let client = rpc({wait: 10});
-
-// Register cleanup
-afterAll(function() {
-  rpc.stopKeepalive(client);
+afterAll(async function() {
+  await new Promise(r=>setTimeout(r,1000));
+  console.log(clientSide.tmp);
 });
 
-// Connect them (normally through net)
-server.pipe(client).pipe(server);
+test('Wait for client ready', async () => {
+  while(!client.ready) await new Promise(r=>setTimeout(r,10));
+  expect(client.ready).toBe(true);
+});
 
-// Initialize the actual client
-let remote = rpc.remote(client);
+test('Verify received types', async () => {
+  while(!client.ready) await new Promise(r=>setTimeout(r,10));
+  expect(typeof client.ready     ).toBe('boolean');
+  expect(typeof client.secret    ).toBe('object');
+  expect(typeof client.user      ).toBe('object');
+  expect(typeof client.user.name ).toBe('string');
+  expect(typeof client.user.pass ).toBe('string');
+  expect(typeof client.fnReturn  ).toBe('function');
+  expect(typeof client.fnCallback).toBe('function');
+  expect(typeof client.fnThrow   ).toBe('function');
+});
 
 test('Verify string values', async () => {
-  while (!remote.ready) await new Promise(r=>setTimeout(r,10));
-
-  expect(remote.user.name).toBe('root');
-  expect(remote.user.pass).toBe('toor');
+  while(!client.ready) await new Promise(r=>setTimeout(r,10));
+  expect(client.user.name).toBe('root');
+  expect(client.user.pass).toBe('toor');
 });
 
 test('Returning function', async () => {
-  while (!remote.ready) await new Promise(r=>setTimeout(r,10));
-
-  let result = await remote.fnReturn('foobar');
+  while(!client.ready) await new Promise(r=>setTimeout(r,10));
+  let result = await client.fnReturn('foobar');
   expect(result).toBe('FOOBAR');
 });
 
 test('Callback function', async () => {
-  while (!remote.ready) await new Promise(r=>setTimeout(r,10));
-
+  while(!client.ready) await new Promise(r=>setTimeout(r,10));
+ 
   let result = await new Promise((resolve,reject) => {
-    remote.fnCallback('hello world', function(err, data) {
+    client.fnCallback('hello world', function(err, data) {
       if (err) return reject(err);
       resolve(data);
     });
@@ -60,14 +84,15 @@ test('Callback function', async () => {
 });
 
 test('Throwing function', async () => {
-  while (!remote.ready) await new Promise(r=>setTimeout(r,10));
+  while (!client.ready) await new Promise(r=>setTimeout(r,10));
 
   let thrown = false;
   try {
-    await remote.fnThrow();
+    await client.fnThrow();
   } catch(e) {
     thrown = e;
   }
   expect(thrown).toBeTruthy();
   expect(thrown.message).toBe('foobar err');
 });
+
