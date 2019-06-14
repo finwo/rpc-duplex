@@ -39,7 +39,6 @@ beforeAll(async function() {
 
 afterAll(async function() {
   await new Promise(r=>setTimeout(r,1000));
-  console.log(clientSide.tmp);
 });
 
 test('Wait for client ready', async () => {

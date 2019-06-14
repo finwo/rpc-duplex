@@ -1,9 +1,8 @@
-const through            = require('through'),
-      packetize          = require('stream-packetize'),
+const packetize          = require('stream-packetize'),
       serializeError     = require('serialize-error'),
       nagle              = require('stream-nagle'),
       stream             = Symbol('stream'),
-      isBuffer           = require('is-buffer');
+      EventEmitter       = require('simple-ee');
 
 function encode( subject ) {
   return JSON.stringify(subject);
@@ -72,39 +71,32 @@ function attachStream( obj, s ) {
 }
 
 function serialize( data, out, path, includeFn ) {
-  out      = out  || [];
+  out      = out  || [Array.isArray(data)?[]:{},[]];
   path     = path || [];
 
   let type = 1;
   Object.keys(data).forEach(function(key) {
-    let current = [path.concat([key]), typeof data[key]];
-    switch(current[type]) {
+    let current = path.concat([key]);
+    switch(typeof data[key]) {
       case 'function':
-        if (includeFn) current.push(data[key]);
-        out.push(current);
-        serialize(data[key], out, path.concat([key]), includeFn);
+        let fn = [current];
+        if (includeFn) fn.push(data[key]);
+        out[1].push(fn);
+        out[0][key] = {};
+        serialize(data[key], [out[0][key],out[1]], path.concat([key]), includeFn);
         break;
       case 'object':
 
-        // null = object
-        if (null === data[key]) {
-          current[type] = 'null';
-          out.push(current);
-          break;
-        }
-
-        // Identify arrays
-        if (Array.isArray(data[key])) {
-          current[type] = 'array';
-        }
+        // Null
+        if (!data[key])
+          return out[0][key] = data[key];
 
         // Iterate down
-        out.push(current);
-        serialize(data[key], out, path.concat([key]), includeFn);
-        break;
+        out[0][key] = data[key];
+        serialize(data[key], [out[0][key],out[1]], current, includeFn);
+        return;
       default:
-        current.push(data[key]);
-        out.push(current);
+        out[0][key] = data[key];
         break;
     }
   });
@@ -112,90 +104,64 @@ function serialize( data, out, path, includeFn ) {
 }
 
 function deserialize( ref, data, obj ) {
-  obj   = obj || {};
   let s = ref[stream];
-  data.forEach(function(token) {
+  obj   = obj || (Array.isArray(data[0])?[]:{});
 
-    // Destructure the token
-    let [path, type, value] = token;
-    let ref                 = obj;
-    let lastKey             = path.pop();
+  (function merge(dst, src, path) {
+    Object.keys(src).forEach(function(key) {
+      let current = path.concat([key]);
+      let type    = typeof src[key];
+      switch(type) {
+        case 'object':
+          if (!src[key]) return dst[key] = src[key];
+          dst[key] = dst[key] || (Array.isArray(src[key])?[]:{});
+          merge(dst[key],src[key],current);
+        default:
+          dst[key] = src[key];
+          break;
+      }
+    });
+  })(obj,data[0],[]);
 
-    // Follow path into object
-    for (const key of path) {
-      ref = ref[key] = ref[key] || {};
-    }
+  (function insertFunction(dst,fn) {
+    fn.forEach(function([path,id]) {
+          path  = path.slice();
+      let value = path.slice();
+      let ref   = dst;
+      let last  = path.pop();
+      for(let token in path)
+        ref = ref[token] = ref[token] || {};
+      let org = ref[last];
+      ref[last] = function(...args) {
+        const callId = genId();
+        return new Promise((resolve,reject) => {
+          s.tmp[callId] = (err,data) => {
+            delete s.tmp[callId];
+            if(err) return reject(err);
+            resolve(data);
+          };
+          let data = {id:callId,arg:serializeArgs(s,args)};
+          if (id) data.ret = id;
+          else data.fn = value;
+          s.output.write(encode(data));
+        });
+      };
+      Object.assign(ref[last],org);
+    });
+  })(obj,data[1]);
 
-    // Fetch what to do
-    switch(type) {
-      case 'null':
-        ref[lastKey] = null;
-        return;
-      case 'object':
-        if ('object' !== typeof ref[lastKey])
-          ref[lastKey] = {};
-        return;
-      case 'array':
-        if (!Array.isArray(ref[lastKey]))
-          ref[lastKey] = [];
-        return;
-      case 'callback':
-        return ref[lastKey] = function(...args) {
-          s.output.write(encode({
-            ret : value,
-            arg : serializeArgs(s,args),
-          }));
-        };
-      case 'function':
-        if (!value) value = path.concat([lastKey]);
-        if (!Array.isArray(value)) value = [value];
-        return ref[lastKey] = function (...args) {
-          return new Promise((resolve, reject) => {
-            let callId = genId();
-            s.tmp[callId] = function( err, data ) {
-              delete s.tmp[callId];
-              if (err) return reject(new RemoteError(err));
-              resolve(data);
-            };
-            s.output.write(encode({
-              fn : value,
-              id : callId,
-              arg: serializeArgs(s, args),
-            }));
-          });
-        };
-      default:
-        if (value !== ref[lastKey])
-          ref[lastKey] = value;
-        return;
-    }
-  });
   return obj;
 }
 
 function serializeArgs(ref, data) {
   let s = ref[stream];
-  let serialized = serialize(data, [], [], true);
-  serialized.forEach(function(token) {
-    switch(token[1]) {
-      case 'function':
-        let fn = token[2];
-        let id = genId();
-        s.tmp[id] = function(...args) {
-          delete s.tmp[id]
-          fn(...args);
-        };
-        token[1]  = 'callback';
-        token[2]  = id;
-        break;
-    }
+  let serialized = serialize(data, null, null, true);
+  serialized[1].forEach(function(token) {
+    let id    = genId();
+    s.tmp[id] = token[1];
+    token[1]  = id;
   });
   return serialized;
-}
-
-function deserializeArgs(ref, data) {
-  let deserialized = deserialize(ref, data);
-  return Object.keys(deserialized).map( key => deserialized[key] );
 }
 
 const rpc = module.exports = function (options, local, remote) {
@@ -215,18 +181,30 @@ const rpc = module.exports = function (options, local, remote) {
   // Create IO loop
   const input  = packetize.decode(opts);
   const output = packetize.encode(opts);
-  const io     = through(function (data) {
-    input.write(data);
-  }, function() {
-    input.write(null);
+  const io     = EventEmitter({
+    readable: true,
+    writable: true,
+    paused  : false,
+    write   : function(data) {
+      input.write(data);
+    },
+    end     : function(data) {
+      input.write(null);
+      this.emit('end');
+    },
+    pipe    : function(destination) {
+      this.on('data',function(data) {
+        destination.write(data);
+      });
+      return destination;
+    },
   });
   output.pipe(nagle(opts))
     .on('data', function(chunk) {
-      io.queue(chunk);
+      io.emit('data',chunk);
     })
     .on('end', function() {
-      io.queue(null);
-      io.emit('close');
+      io.emit('data',null);
     });
 
   // Internal functions
@@ -252,7 +230,7 @@ const rpc = module.exports = function (options, local, remote) {
 
     // Handle function returns
     if (('string' === typeof data.ret) && (data.ret in io.tmp)) {
-      return io.tmp[data.ret](...deserializeArgs(io,data.arg));
+      return io.tmp[data.ret](...deserialize(io,data.arg));
     }
 
     // Handle local functions
@@ -262,7 +240,7 @@ const rpc = module.exports = function (options, local, remote) {
         target = target[key] || {};
       if ('function' !== typeof target) return;
       try {
-        let result = await target(...deserializeArgs(io,data.arg));
+        let result = await target(...deserialize(io,data.arg));
         return io.output.write(encode({
           ret : data.id,
           arg : serializeArgs(io,[null,result]),

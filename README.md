@@ -1,16 +1,13 @@
 # rpc-duplex
 
-[![NPM](https://nodei.co/npm/rpc-duplex.png)](https://nodei.co/npm/rpc-duplex/)
-
 > Streamed RPC library for both Node.JS and the browser
+
+[![NPM](https://nodei.co/npm/rpc-duplex.png)](https://nodei.co/npm/rpc-duplex/)
 
 ## Important notes
 
 This implementation **DOES NOT** follow the [msgpack-rpc][msgpack-rpc] specification. It intends to provide a stable
 stand-alone solution for remote-procedure-calling over websockets in both Node.JS and the browser.
-
-The protocol is **NOT** versioned (yet), updates may break your application until it is. No major version will be
-released until the protocol is versioned & updates should not break applications.
 
 ## Install
 
@@ -71,12 +68,6 @@ Browser usage is possible through the use of [browserify][browserify].
 
 This package makes use of ES6 features. If you want to use this module in older browsers you'll need to use a plugin
 like [esmify][esmify] to ensure it works.
-
-## TODO
-
-- version the protocol
-- document the resulting protocol (like a spec)
-- automatic reconnect?
 
 [browserify]: https://npmjs.com/package/browserify
 [esmify]: https://npmjs.com/package/esmify
