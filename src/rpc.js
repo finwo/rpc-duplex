@@ -20,29 +20,40 @@ function passthrough() {
   });
 }
 
-function objectDecoder() {
-  let stack = [];
-  return EventEmitter({
+function lineSplit() {
+  let buffer = '';
+  let decoder = EventEmitter({
     readable: true,
     writable: true,
     paused  : false,
     write: function(chunk) {
-      // TODO: manual JSON decode here
+      buffer += Buffer.from(chunk).toString();
+      if (~buffer.indexOf("\n")) {
+        let tmp = buffer.split("\n",2);
+        let obj = tmp.shift();
+        buffer  = tmp.join("\n");
+        try {
+          this.emit('data',obj);
+        } catch(e) {
+          // Do nothing for now
+        }
+      }
     },
     end: function() {
       this.emit('end');
     },
     pipe: function(dst) {
       this.on('data', function(obj) {
-        dst.write(JSON.stringify(obj));
+        dst.write(obj);
       });
       return dst;
     },
   });
+  return decoder;
 }
 
 function encode( subject ) {
-  return JSON.stringify(subject);
+  return JSON.stringify(subject) + "\n";
 }
 
 function decode( subject ) {
@@ -218,7 +229,7 @@ const rpc = module.exports = function (options, local, remote) {
   remote     = remote || {};
 
   // Create IO loop
-  const input  = objectDecoder();
+  const input  = lineSplit();
   const output = passthrough();
   const io     = EventEmitter({
     readable: true,
@@ -259,11 +270,8 @@ const rpc = module.exports = function (options, local, remote) {
 
   // Handle incoming data
   input.on('data', async function(data) {
-    console.log(data);
     if (!data) return;
     data = decode(data);
-
-    console.log('DEC RECV', JSON.stringify(data));
 
     // Handle internal functions
     if (('string' === typeof data.fn) && (data.fn in internal)) {
