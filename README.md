@@ -6,7 +6,7 @@
 
 ## Important notes
 
-This implementation **DOES NOT** follow the [msgpack-rpc][msgpack-rpc] specification. It intends to provide a stable
+This implementation **DOES NOT** follow any generic RPC specification as far as I know. It intends to provide a stable
 stand-alone solution for remote-procedure-calling over websockets in both Node.JS and the browser.
 
 ## Install
@@ -64,11 +64,10 @@ const remote = rpc.remote(consumer);
 
 ### Browser
 
-Browser usage is possible through the use of [browserify][browserify].
+Browser usage is possible through the use of [browserify][browserify] (webpack should be supported but is not tested).
 
 This package makes use of ES6 features. If you want to use this module in older browsers you'll need to use a plugin
 like [esmify][esmify] to ensure it works.
 
 [browserify]: https://npmjs.com/package/browserify
 [esmify]: https://npmjs.com/package/esmify
-[msgpack-rpc]: https://github.com/msgpack-rpc/msgpack-rpc
