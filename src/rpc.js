@@ -275,8 +275,6 @@ const rpc = module.exports = function (options, local, remote) {
     if (!data) return;
     data = io.opts.decode(data);
 
-    console.log('DATA', data);
-
     // Handle internal functions
     if (('string' === typeof data.fn) && (data.fn in internal)) {
       return internal[data.fn](...(data.arg||[]));
