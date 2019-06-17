@@ -193,7 +193,7 @@ function deserialize( ref, data, obj ) {
           let data = {id:callId,arg:serializeArgs(s,args)};
           if (id) data.ret = id;
           else data.fn = value;
-          s.output.write(encode(data));
+          s.output.write(s.opts.encode(data));
         });
       };
       Object.assign(ref[last],org);
@@ -219,6 +219,8 @@ const rpc = module.exports = function (options, local, remote) {
     aggressive:  true,
     base64    :  false,
     burst     :  true,
+    decode    : decode,
+    encode    : encode,
     mtu       :  2048,
     wait      :    10,
     keepalive : 10000,
@@ -260,7 +262,7 @@ const rpc = module.exports = function (options, local, remote) {
   // Internal functions
   const internal = {
     state: function() {
-      return io.output.write(encode({fn:'update',arg:[serialize(io.local)]}));
+      return io.output.write(io.opts.encode({fn:'update',arg:[serialize(io.local)]}));
     },
     update: function( serialized ) {
       deserialize(io,serialized,io.remote);
@@ -271,7 +273,9 @@ const rpc = module.exports = function (options, local, remote) {
   // Handle incoming data
   input.on('data', async function(data) {
     if (!data) return;
-    data = decode(data);
+    data = io.opts.decode(data);
+
+    console.log('DATA', data);
 
     // Handle internal functions
     if (('string' === typeof data.fn) && (data.fn in internal)) {
@@ -291,12 +295,12 @@ const rpc = module.exports = function (options, local, remote) {
       if ('function' !== typeof target) return;
       try {
         let result = await target(...deserialize(io,data.arg));
-        return io.output.write(encode({
+        return io.output.write(io.opts.encode({
           ret : data.id,
           arg : serializeArgs(io,[null,result]),
         }));
       } catch(e) {
-        return io.output.write(encode({
+        return io.output.write(io.opts.encode({
           ret : data.id,
           arg : serializeArgs(io,[serializeError(e)]),
         }));
@@ -307,6 +311,7 @@ const rpc = module.exports = function (options, local, remote) {
   // Attach references
   io.local   = local;
   io.remote  = remote;
+  io.opts    = opts;
   io.output  = output;
   io.input   = input;
   io.tmp     = {};
@@ -329,11 +334,11 @@ rpc.local = function(ref) {
 
 rpc.update = function(ref) {
   if (!ref[stream]) return;
-  ref[stream].output.write(encode({fn:'state'}));
+  ref[stream].output.write(ref[stream].opts.encode({fn:'state'}));
 };
 
 rpc.updateRemote = function(ref) {
   if (!ref[stream]) return;
   attachStream(ref,ref[stream]);
-  ref[stream].input.emit('data',encode({fn: 'state'}));
+  ref[stream].input.emit('data',ref[stream].opts.encode({fn: 'state'}));
 };
