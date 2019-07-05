@@ -25,6 +25,11 @@ beforeAll(async function() {
     fnThrow: function() {
       throw new Error('foobar err');
     },
+    config: {
+      regex: {
+        ip : /((^\s*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))\s*$)|(^\s*((([0-9A-Fa-f]{1,4}:){7}([0-9A-Fa-f]{1,4}|:))|(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})|:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})|((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})|((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})|((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:)))(%.+)?\s*$))/i,
+      }
+    }
   });
 
   // Init client connector
@@ -48,14 +53,19 @@ test('Wait for client ready', async () => {
 
 test('Verify received types', async () => {
   while(!client.ready) await new Promise(r=>setTimeout(r,10));
-  expect(typeof client.ready     ).toBe('boolean');
-  expect(typeof client.secret    ).toBe('object');
-  expect(typeof client.user      ).toBe('object');
-  expect(typeof client.user.name ).toBe('string');
-  expect(typeof client.user.pass ).toBe('string');
-  expect(typeof client.fnReturn  ).toBe('function');
-  expect(typeof client.fnCallback).toBe('function');
-  expect(typeof client.fnThrow   ).toBe('function');
+  expect(typeof client.ready          ).toBe('boolean');
+  expect(typeof client.config         ).toBe('object');
+  expect(typeof client.config.regex   ).toBe('object');
+  expect(typeof client.config.regex.ip).toBe('object');
+  expect(typeof client.secret         ).toBe('object');
+  expect(typeof client.user           ).toBe('object');
+  expect(typeof client.user.name      ).toBe('string');
+  expect(typeof client.user.pass      ).toBe('string');
+  expect(typeof client.fnReturn       ).toBe('function');
+  expect(typeof client.fnCallback     ).toBe('function');
+  expect(typeof client.fnThrow        ).toBe('function');
+
+  expect(client.config.regex.ip instanceof RegExp).toBe(true);
 });
 
 test('Verify string values', async () => {

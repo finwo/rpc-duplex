@@ -52,20 +52,45 @@ function lineSplit() {
   return decoder;
 }
 
+function encodeRegex( k, v ) {
+  if (!(k && v                      )) return false;
+  if (  'object' !==        typeof v ) return false;
+  if (!(v        instanceof RegExp  )) return false;
+  return { type: 'RegExp', source: v.source, flags: v.flags };
+}
+
+function decodeRegex( k, v ) {
+  if (!(k && v                      )) return false;
+  if (  'object' !== typeof v        ) return false;
+  if (!('type'   in  v              )) return false;
+  if (  'RegExp' !== v.type          ) return false;
+  if (!('source' in  v              )) return false;
+  if (!('flags'  in  v              )) return false;
+  if (  'string' !== typeof v.source ) return false;
+  if (  'string' !== typeof v.flags  ) return false;
+  return new RegExp(v.source,v.flags);
+}
+
+function decodeBuffer( k, v ) {
+  if (!( k && v              )) return false;
+  if (  'object' !== typeof v ) return false;
+  if (!('type'   in  v       )) return false;
+  if (  'Buffer' !== v.type   ) return false;
+  if (!('data'   in  v       )) return false;
+  if (! Array.isArray(v.data) ) return false;
+  return Buffer.from(v.data);
+}
+
 function encode( subject ) {
-  return JSON.stringify(subject) + "\n";
+  return JSON.stringify(subject, (k,v) => {
+    return encodeRegex(k,v) || v;
+  }) + "\n";
 }
 
 function decode( subject ) {
   try {
     return JSON.parse(subject, (k,v) => {
-      if (  'object' !== typeof v      ) return v;
-      if (                     !v      ) return v;
-      if (!('type'   in         v     )) return v;
-      if (  'Buffer' !==        v.type ) return v;
-      if (!('data'   in         v     )) return v;
-      if (! Array.isArray(v.data      )) return v;
-      return Buffer.from(v.data);
+      return decodeBuffer(k,v) || decodeRegex(k,v)  || v;
     });
   } catch(e) {
     console.error(e);
@@ -135,8 +160,8 @@ function serialize( data, out, path, includeFn ) {
         break;
       case 'object':
 
-        // Null
-        if (!data[key])
+        // Null / RegExp
+        if ((!data[key]) || (data[key] instanceof RegExp))
           return out[0][key] = data[key];
 
         // Iterate down
@@ -162,7 +187,9 @@ function deserialize( ref, data, obj ) {
       let type    = typeof src[key];
       switch(type) {
         case 'object':
-          if (!src[key]) return dst[key] = src[key];
+          if ((!src[key]) || (src[key] instanceof RegExp))
+            return dst[key] = src[key];
+
           dst[key] = dst[key] || (Array.isArray(src[key])?[]:{});
           merge(dst[key],src[key],current);
           break;
