@@ -4,7 +4,7 @@
   "description": "",
   "main": "src/rpc.js",
   "scripts": {
-    "test": "jest --detectOpenHandles",
+    "test": "tape src/**/*.test.js",
     "postpublish": "sh scripts/postpublish.sh"
   },
   "repository": {
@@ -15,10 +15,7 @@
   "license": "MIT",
   "homepage": "http://git.finwo.net/rpc-duplex-js",
   "devDependencies": {
-    "esm": "^3.2.25",
-    "expect": "^23.6.0",
-    "jest": "^23.6.0",
-    "jest-isa": "^0.0.4"
+    "tape": "^4.11.0"
   },
   "dependencies": {
     "serialize-error": "^3.0.0",
