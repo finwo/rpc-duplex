@@ -98,3 +98,15 @@ test('Throwing function', async t => {
   t.equal(!!thrown      , true        , 'an error was thrown'       );
   t.equal(thrown.message, 'foobar err', 'error message was expected');
 });
+
+test('Check if synchronized RegEx still works', async t => {
+  t.plan(5);
+  while(!client.config.regex.ip) await new Promise(r=>setTimeout(r,10));
+
+  let regex = client.config.regex.ip;
+  t.equal(regex.test('127.0.0.1'      ), true , 'valid:   127.0.0.1'      );
+  t.equal(regex.test('::1'            ), true , 'valid:   ::1'            );
+  t.equal(regex.test(':::1'           ), false, 'invalid: :::1'           );
+  t.equal(regex.test('256.255.255.255'), false, 'invalid: 256.255.255.255');
+  t.equal(regex.test('255.255.255.255'), true , 'valid:   255.255.255.255');
+});
