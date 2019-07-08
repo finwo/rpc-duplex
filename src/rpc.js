@@ -293,6 +293,7 @@ const rpc = module.exports = function (options, local, remote) {
     },
     update: function( serialized ) {
       deserialize(io,serialized,io.remote);
+      attachStream(io.remote,io);
       return io.emit('update');
     },
   };
@@ -358,12 +359,14 @@ rpc.local = function(ref) {
 };
 
 rpc.update = function(ref) {
-  if (!ref[stream]) return;
-  ref[stream].output.write(ref[stream].opts.encode({fn:'state'}));
+  const io = ref[stream];
+  if (!io) return;
+  io.output.write(io.opts.encode({fn:'state'}));
 };
 
 rpc.updateRemote = function(ref) {
-  if (!ref[stream]) return;
-  attachStream(ref,ref[stream]);
-  ref[stream].input.emit('data',ref[stream].opts.encode({fn: 'state'}));
+  const io = ref[stream];
+  if (!io) return;
+  attachStream(ref,io);
+  io.input.emit('data',io.opts.encode({fn: 'state'}));
 };
