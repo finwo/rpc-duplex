@@ -21,7 +21,7 @@
     "serialize-error": "^3.0.0",
     "simple-ee": "^2.0.5",
     "stream-nagle": "^0.1.2",
-    "stream-packetize": "^0.1.2"
+    "stream-packetize": "^1.0.3"
   },
   "keywords": [
     "rpc",
