@@ -1,6 +1,6 @@
 {
   "name": "rpc-duplex",
-  "version": "3.2.4",
+  "version": "3.2.5",
   "description": "",
   "main": "src/rpc.js",
   "scripts": {
