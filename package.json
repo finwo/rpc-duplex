@@ -15,7 +15,7 @@
   "license": "MIT",
   "homepage": "http://github.com/finwo/rpc-duplex",
   "devDependencies": {
-    "tape": "^4.11.0"
+    "tape": "^5.0.0"
   },
   "dependencies": {
     "serialize-error": "^3.0.0",
