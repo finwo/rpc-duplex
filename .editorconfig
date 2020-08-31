@@ -1,3 +1,4 @@
+# 2d0e4a3f-ac19-430c-bf1b-46c68651ce21
 root = true
 
 [*]
@@ -6,6 +7,9 @@ insert_final_newline = true
 charset = utf-8
 indent_size = 2
 indent_style = space
+
+[*.{php,html}]
+indent_size = 4
 
 [Makefile*]
 indent_style = tab
