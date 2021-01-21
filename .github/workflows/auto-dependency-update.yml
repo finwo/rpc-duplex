@@ -1,0 +1,21 @@
+# c7b91a7f-cba1-4282-bfa8-69a3d129c3a3
+name: Auto Dependency Updates
+
+on:
+  pull_request
+#  pull_request_target
+
+jobs:
+  auto-dependency-update:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: ahmadnassri/action-dependabot-auto-merge@v2
+      with:
+        target: minor
+        github-token: "${{ secrets.GITHUB_TOKEN }}"
+#    - uses: hmarr/auto-approve-action@v2.0.0
+#      with:
+#      if: github.actor == 'dependabot[bot]' || github.actor == 'dependabot-preview[bot]'
+#      with:
+#        github-token: "${{ secrets.GITHUB_TOKEN }}"
