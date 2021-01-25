@@ -18,7 +18,7 @@
     "tape": "^5.0.0"
   },
   "dependencies": {
-    "serialize-error": "^3.0.0",
+    "serialize-error": "^8.0.1",
     "simple-ee": "^2.0.5",
     "stream-nagle": "^1.0.0",
     "stream-packetize": "^1.0.3"
